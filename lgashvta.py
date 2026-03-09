@@ -190,14 +190,14 @@ if choice == "Dashboard":
                 
                 compliance_csv = overdue.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📥 Download Compliance List (CSV)",
+                    label="Download Compliance List (CSV)",
                     data=compliance_csv,
                     file_name=f"compliance_report_{today}.csv",
                     mime='text/csv',
                     key="compliance_download_btn" # Unique Key
                 )
             else:
-                st.success("✅ All units are currently compliant.")
+                st.success("All units are currently compliant.")
 
         # 3.2 BATCH DISTRIBUTION VISUALIZATION
         st.markdown("---")
@@ -217,6 +217,10 @@ if choice == "Dashboard":
             st.download_button(
                 label="Download This Inventory (CSV)",
                 data=inventory_csv,
+                file_name=f"inventory_{datetime.now().date()}.csv",
+                mime='text/csv',
+                key="full_inventory_download_btn" # Unique Key
+            )
 
 # --- PAGE: BULK PROCESSING ---
 elif choice == "Bulk Processing (Workers)":
@@ -427,6 +431,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
