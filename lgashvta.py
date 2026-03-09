@@ -59,13 +59,13 @@ def login():
                 except Exception as e:
                     st.error(f"API Error: Ensure 'username' exists and RLS allows access.")
 
-        with tab_reg:
-            st.info("📝 Register a new Account")
+       with tab_reg:
+            st.info("Register a new Account")
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
             
             col_a, col_b = st.columns(2)
             with col_a:
-                new_user = st.text_input("Full Name (Username)")
+                new_user = st.text_input("Username (for Login)") # Matches 'username' in DB
                 new_pwd = st.text_input("Choose Password", type="password")
                 confirm_pwd = st.text_input("Verify Password", type="password")
             
@@ -80,23 +80,20 @@ def login():
                 if new_pwd != confirm_pwd:
                     st.error("❌ Passwords do not match.")
                 elif not (new_user and new_pwd and new_link):
-                    st.warning("⚠️ Please fill in all required fields.")
+                    st.warning("Please fill in all required fields.")
                 else:
                     try:
-                        # Inserting using lowercase 'client_link' to match your DB
+                        # UPDATED: Mapping to the exact column names in your latest Supabase screenshot
                         supabase.table("profiles").insert({
-                            "full_name": new_user,
-                            "role": reg_role,
-                            "client_link": new_link,
+                            "username": new_user,      # Matches 'username' column
+                            "role": reg_role,          # Matches 'role' column
+                            "client_link": new_link,   # Matches 'client_link' column
+                            "password": new_pwd,       # Matches 'password' column
                             "updated_at": str(datetime.now())
                         }).execute()
                         st.success("✅ Registration successful! Please switch to Login tab.")
                     except Exception as e:
-                        st.error(f"Error: {e}")
-
-if st.session_state.role is None:
-    login()
-    st.stop()
+                        st.error(f"Registration Error: {e}")
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -426,6 +423,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
