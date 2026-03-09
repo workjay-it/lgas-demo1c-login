@@ -96,9 +96,10 @@ def login():
                     except Exception as e:
                         st.error(f"Registration Error: {e}")
 
+# This part must be outside the login() function
 if st.session_state.role is None:
     login()
-    st.stop()")
+    st.stop()
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -428,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
