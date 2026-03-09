@@ -16,11 +16,24 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 1.5 DYNAMIC LOGIN & REGISTRATION ---
+# Initialize Session States
+if 'role' not in st.session_state:
+    st.session_state.role = None
+if 'company_link' not in st.session_state:
+    st.session_state.company_link = None
+
+# Initialize Connection
+@st.cache_resource
+def init_connection():
+    return create_client(st.secrets["connections"]["supabase"]["url"], st.secrets["connections"]["supabase"]["key"])
+
+supabase = init_connection()
+
+# --- 1.5 LOGIN & REGISTRATION LOGIC ---
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["Login", "Create Account"])
+        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
         
         with tab_login:
             user = st.text_input("Username (Full Name)")
@@ -29,7 +42,7 @@ def login():
                 res = supabase.table("profiles").select("*").eq("full_name", user).execute()
                 if res.data:
                     user_info = res.data[0]
-                    # Note: In production, compare hashed passwords
+                    # Note: In production, use hashed password comparison
                     st.session_state.role = user_info['role']
                     st.session_state.company_link = user_info['Client_link']
                     st.success(f"Welcome back, {user}")
@@ -38,9 +51,7 @@ def login():
                     st.error("Invalid credentials. Please try again.")
 
         with tab_reg:
-            st.info("Register a new Account")
-            
-            # Select Role
+            st.info("📝 Register a new Account")
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Test Center"])
             
             col_a, col_b = st.columns(2)
@@ -54,30 +65,28 @@ def login():
                     new_link = st.selectbox("Select Your Company", ["Indane", "Bharat Gas", "HP Gas", "Industrial Solutions", "LPG Hub Hyderabad"])
                 else:
                     new_link = st.text_input("Facility/Yard Name (e.g., North Yard)")
-                
                 contact_info = st.text_input("Email or Phone Number")
 
             if st.button("Register & Create Account"):
-                # 1. Check if passwords match
                 if new_pwd != confirm_pwd:
-                    st.error("❌ Passwords do not match. Please try again.")
-                # 2. Check for empty fields
+                    st.error("❌ Passwords do not match.")
                 elif not (new_user and new_pwd and new_link):
                     st.warning("⚠️ Please fill in all required fields.")
-                # 3. Proceed to Database
                 else:
                     try:
-                        # Ensure your Supabase 'profiles' table has columns for these
                         supabase.table("profiles").insert({
                             "full_name": new_user,
                             "role": reg_role,
                             "Client_link": new_link,
                             "updated_at": str(datetime.now())
-                            # "password": new_pwd (Optional: Add this column to your table)
                         }).execute()
-                        st.success(f"Registration successful for {new_user}! Please switch to the Login tab.")
+                        st.success("✅ Registration successful! Please switch to Login tab.")
                     except Exception as e:
                         st.error(f"Error: {e}")
+
+if st.session_state.role is None:
+    login()
+    st.stop()
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -87,33 +96,30 @@ def get_unified_data():
         c_res = supabase.table("cylinders").select("*").execute()
         b_df = pd.DataFrame(b_res.data)
         c_df = pd.DataFrame(c_res.data)
-        
         if b_df.empty: return pd.DataFrame()
         if "Batch_ID" in c_df.columns: c_df = c_df.rename(columns={"Batch_ID": "batch_id"})
-        
         b_df["batch_id"] = b_df["batch_id"].astype(str).str.strip().str.upper()
         if not c_df.empty:
             c_df["batch_id"] = c_df["batch_id"].astype(str).str.strip().str.upper()
-            
         return pd.merge(b_df, c_df, on="batch_id", how="left")
     except Exception as e:
-        st.error(f"Database sync error: {e}")
+        st.error(f"Sync error: {e}")
         return pd.DataFrame()
 
 full_df = get_unified_data()
 
-# --- 3. DYNAMIC NAVIGATION ---
+# --- 3. DYNAMIC NAVIGATION (GOD MODE) ---
 st.sidebar.title(f"👤 {st.session_state.role}")
 if st.session_state.company_link:
     st.sidebar.caption(f"🏢 {st.session_state.company_link}")
 
-menu = ["Dashboard", "Search Unit"] 
-
+# Define base menu
 if st.session_state.role == "Admin":
+    st.sidebar.warning("⚡ GOD MODE ACTIVE")
     menu = ["Dashboard", "Bulk Processing (Workers)", "Financial & Billing", "Truck Intake", "Search Unit", "Gas Co Upload"]
 elif st.session_state.role == "Gas Company":
     menu = ["Dashboard", "Gas Co Upload", "Search Unit"]
-elif st.session_state.role == "Test Center":
+else: # Test Center
     menu = ["Dashboard", "Bulk Processing (Workers)", "Search Unit"]
 
 choice = st.sidebar.radio("Navigation", menu)
@@ -130,29 +136,28 @@ if choice == "Dashboard":
     if full_df.empty:
         st.warning("No data found.")
     else:
-        # 1. APPLY ISOLATION FILTER
+        # --- GOD MODE LOGIC ---
         if st.session_state.role == "Admin":
             all_companies = ["All Companies"] + sorted([str(c) for c in full_df["company"].unique() if c])
-            target_company = st.selectbox("Select Company to view", all_companies)
+            target_company = st.selectbox("Switch View (God Mode)", all_companies)
             display_df = full_df if target_company == "All Companies" else full_df[full_df["company"] == target_company]
         elif st.session_state.role == "Gas Company":
             target_company = st.session_state.company_link
             display_df = full_df[full_df["company"] == target_company]
-            st.info(f"Displaying secure data for {target_company}")
+            st.info(f"Viewing secure data for: {target_company}")
         else: # Test Center
             display_df = full_df
             st.info(f"📍 Operational View: {st.session_state.company_link}")
 
-        # 2. METRICS
+        # Metrics
         m1, m2, m3 = st.columns(3)
         m1.metric("Trucks in Yard", display_df["batch_id"].nunique())
         m2.metric("Total Cylinders", display_df["Cylinder_ID"].count())
         m3.metric("Damaged Found", (display_df["Status"].astype(str).str.upper() == "DAMAGED").sum())
 
-        # 3. EXPORT CENTER
-        with st.expander("📥 Professional Report Export"):
+        # Professional Export Center
+        with st.expander("📥 Professional Report Export Center"):
             if st.session_state.role == "Test Center":
-                # Test Center gets Before/After work downloads
                 c1, c2 = st.columns(2)
                 with c1:
                     todo_df = full_df[full_df["Status"] == "Empty"]
@@ -162,17 +167,17 @@ if choice == "Dashboard":
                     done_df = full_df[full_df["Last_Test_Date"] == today_str]
                     st.download_button("✅ Download Completion Log (Today)", done_df.to_csv(index=False).encode('utf-8'), f"production_{today_str}.csv")
             else:
-                # Gas Company / Admin gets New/Old data downloads
                 col1, col2 = st.columns(2)
                 with col1:
-                    data_range = st.radio("Select Data Range", ["Complete", "New (Last 7 Days)", "Historical (Old)"], horizontal=True)
+                    data_range = st.radio("Select Range", ["Complete", "New (Last 7 Days)", "Historical"], horizontal=True)
                 with col2:
                     file_ext = st.selectbox("Format", ["CSV", "Excel", "PDF"])
 
+                # Filtering for range
                 if data_range == "New (Last 7 Days)":
                     cutoff = datetime.now() - timedelta(days=7)
                     export_df = display_df[pd.to_datetime(display_df["arrival_time"]) >= cutoff]
-                elif data_range == "Historical (Old)":
+                elif data_range == "Historical":
                     cutoff = datetime.now() - timedelta(days=7)
                     export_df = display_df[pd.to_datetime(display_df["arrival_time"]) < cutoff]
                 else:
@@ -182,13 +187,8 @@ if choice == "Dashboard":
                     st.download_button(f"Download {file_ext} Report", export_df.to_csv(index=False).encode('utf-8'), "report.csv")
 
         st.markdown("---")
-        st.subheader(f"Batch Performance Summary")
-        summary = display_df.groupby(["batch_id", "company", "truck_number"], dropna=False).agg(
-            Total_Units=("Cylinder_ID", "count"),
-            Ready=("Status", lambda x: (x.astype(str).str.upper() == "FULL").sum()),
-            Damaged=("Status", lambda x: (x.astype(str).str.upper() == "DAMAGED").sum())
-        ).reset_index()
-        st.dataframe(summary, use_container_width=True, hide_index=True)
+        st.subheader("Summary Table")
+        st.dataframe(display_df.head(20), use_container_width=True)
 
 
 # --- PAGE: BULK PROCESSING ---
@@ -400,6 +400,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
