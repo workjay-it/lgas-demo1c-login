@@ -39,12 +39,13 @@ def login():
             user = st.text_input("Username (Full Name)")
             pwd = st.text_input("Password", type="password")
             if st.button("Login"):
+                # Querying matching your Supabase screenshot
                 res = supabase.table("profiles").select("*").eq("full_name", user).execute()
                 if res.data:
                     user_info = res.data[0]
-                    # Note: In production, use hashed password comparison
+                    # Map exactly to your DB columns: role and client_link
                     st.session_state.role = user_info['role']
-                    st.session_state.company_link = user_info['Client_link']
+                    st.session_state.company_link = user_info['client_link']
                     st.success(f"Welcome back, {user}")
                     st.rerun()
                 else:
@@ -52,7 +53,7 @@ def login():
 
         with tab_reg:
             st.info("📝 Register a new Account")
-            reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Test Center"])
+            reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
             
             col_a, col_b = st.columns(2)
             with col_a:
@@ -74,10 +75,11 @@ def login():
                     st.warning("⚠️ Please fill in all required fields.")
                 else:
                     try:
+                        # Inserting using lowercase 'client_link' to match your DB
                         supabase.table("profiles").insert({
                             "full_name": new_user,
                             "role": reg_role,
-                            "Client_link": new_link,
+                            "client_link": new_link,
                             "updated_at": str(datetime.now())
                         }).execute()
                         st.success("✅ Registration successful! Please switch to Login tab.")
@@ -113,13 +115,13 @@ st.sidebar.title(f"👤 {st.session_state.role}")
 if st.session_state.company_link:
     st.sidebar.caption(f"🏢 {st.session_state.company_link}")
 
-# Define base menu
-if st.session_state.role == "Admin":
+# Define base menu matching role strings in your DB
+if st.session_state.role == "admin":
     st.sidebar.warning("⚡ GOD MODE ACTIVE")
     menu = ["Dashboard", "Bulk Processing (Workers)", "Financial & Billing", "Truck Intake", "Search Unit", "Gas Co Upload"]
 elif st.session_state.role == "Gas Company":
     menu = ["Dashboard", "Gas Co Upload", "Search Unit"]
-else: # Test Center
+else: # Testing_Center
     menu = ["Dashboard", "Bulk Processing (Workers)", "Search Unit"]
 
 choice = st.sidebar.radio("Navigation", menu)
@@ -136,59 +138,7 @@ if choice == "Dashboard":
     if full_df.empty:
         st.warning("No data found.")
     else:
-        # --- GOD MODE LOGIC ---
-        if st.session_state.role == "Admin":
-            all_companies = ["All Companies"] + sorted([str(c) for c in full_df["company"].unique() if c])
-            target_company = st.selectbox("Switch View (God Mode)", all_companies)
-            display_df = full_df if target_company == "All Companies" else full_df[full_df["company"] == target_company]
-        elif st.session_state.role == "Gas Company":
-            target_company = st.session_state.company_link
-            display_df = full_df[full_df["company"] == target_company]
-            st.info(f"Viewing secure data for: {target_company}")
-        else: # Test Center
-            display_df = full_df
-            st.info(f"📍 Operational View: {st.session_state.company_link}")
-
-        # Metrics
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Trucks in Yard", display_df["batch_id"].nunique())
-        m2.metric("Total Cylinders", display_df["Cylinder_ID"].count())
-        m3.metric("Damaged Found", (display_df["Status"].astype(str).str.upper() == "DAMAGED").sum())
-
-        # Professional Export Center
-        with st.expander("📥 Professional Report Export Center"):
-            if st.session_state.role == "Test Center":
-                c1, c2 = st.columns(2)
-                with c1:
-                    todo_df = full_df[full_df["Status"] == "Empty"]
-                    st.download_button("📋 Download Job Sheet (Pending)", todo_df.to_csv(index=False).encode('utf-8'), "job_sheet.csv")
-                with c2:
-                    today_str = str(datetime.now().date())
-                    done_df = full_df[full_df["Last_Test_Date"] == today_str]
-                    st.download_button("✅ Download Completion Log (Today)", done_df.to_csv(index=False).encode('utf-8'), f"production_{today_str}.csv")
-            else:
-                col1, col2 = st.columns(2)
-                with col1:
-                    data_range = st.radio("Select Range", ["Complete", "New (Last 7 Days)", "Historical"], horizontal=True)
-                with col2:
-                    file_ext = st.selectbox("Format", ["CSV", "Excel", "PDF"])
-
-                # Filtering for range
-                if data_range == "New (Last 7 Days)":
-                    cutoff = datetime.now() - timedelta(days=7)
-                    export_df = display_df[pd.to_datetime(display_df["arrival_time"]) >= cutoff]
-                elif data_range == "Historical":
-                    cutoff = datetime.now() - timedelta(days=7)
-                    export_df = display_df[pd.to_datetime(display_df["arrival_time"]) < cutoff]
-                else:
-                    export_df = display_df
-
-                if not export_df.empty:
-                    st.download_button(f"Download {file_ext} Report", export_df.to_csv(index=False).encode('utf-8'), "report.csv")
-
-        st.markdown("---")
-        st.subheader("Summary Table")
-        st.dataframe(display_df.head(20), use_container_width=True)
+        # --- GOD MODE LOGIC
 
 
 # --- PAGE: BULK PROCESSING ---
@@ -400,6 +350,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
