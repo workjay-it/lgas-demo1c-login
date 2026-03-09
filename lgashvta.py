@@ -17,77 +17,67 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 1.5 DYNAMIC LOGIN & REGISTRATION ---
-if 'role' not in st.session_state:
-    st.session_state.role = None
-if 'company_link' not in st.session_state:
-    st.session_state.company_link = None
-
-@st.cache_resource
-def init_connection():
-    return create_client(st.secrets["connections"]["supabase"]["url"], st.secrets["connections"]["supabase"]["key"])
-
-supabase = init_connection()
-
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
+        tab_login, tab_reg = st.tabs(["Login", "Create Account"])
         
         with tab_login:
             user = st.text_input("Username (Full Name)")
             pwd = st.text_input("Password", type="password")
             if st.button("Login"):
-                # Logic: Query profiles. In production, verify hashed password.
                 res = supabase.table("profiles").select("*").eq("full_name", user).execute()
                 if res.data:
                     user_info = res.data[0]
-                    # Check if a password field exists in your Supabase table
-                    # if user_info.get('password') == pwd: 
+                    # Note: In production, compare hashed passwords
                     st.session_state.role = user_info['role']
                     st.session_state.company_link = user_info['Client_link']
                     st.success(f"Welcome back, {user}")
                     st.rerun()
                 else:
-                    st.error("Invalid credentials. Please try again or register.")
+                    st.error("Invalid credentials. Please try again.")
 
         with tab_reg:
-            st.info("📝 Register a new Account")
+            st.info("Register a new Account")
             
-            # Select Role to customize the registration form
+            # Select Role
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Test Center"])
             
             col_a, col_b = st.columns(2)
             with col_a:
-                new_user = st.text_input("Choose Username (Full Name)")
+                new_user = st.text_input("Full Name (Username)")
                 new_pwd = st.text_input("Choose Password", type="password")
+                confirm_pwd = st.text_input("Verify Password", type="password")
             
             with col_b:
                 if reg_role == "Gas Company":
                     new_link = st.selectbox("Select Your Company", ["Indane", "Bharat Gas", "HP Gas", "Industrial Solutions", "LPG Hub Hyderabad"])
                 else:
-                    new_link = st.text_input("Facility/Yard Name (e.g., Main Testing Yard)")
+                    new_link = st.text_input("Facility/Yard Name (e.g., North Yard)")
                 
-                contact_info = st.text_input("Contact Number / Email")
+                contact_info = st.text_input("Email or Phone Number")
 
             if st.button("Register & Create Account"):
-                if new_user and new_pwd and new_link:
+                # 1. Check if passwords match
+                if new_pwd != confirm_pwd:
+                    st.error("❌ Passwords do not match. Please try again.")
+                # 2. Check for empty fields
+                elif not (new_user and new_pwd and new_link):
+                    st.warning("⚠️ Please fill in all required fields.")
+                # 3. Proceed to Database
+                else:
                     try:
-                        # Ensure your Supabase 'profiles' table has columns for these fields
+                        # Ensure your Supabase 'profiles' table has columns for these
                         supabase.table("profiles").insert({
                             "full_name": new_user,
                             "role": reg_role,
                             "Client_link": new_link,
                             "updated_at": str(datetime.now())
+                            # "password": new_pwd (Optional: Add this column to your table)
                         }).execute()
-                        st.success(f"Account created for {new_user}! You can now Login.")
+                        st.success(f"Registration successful for {new_user}! Please switch to the Login tab.")
                     except Exception as e:
-                        st.error(f"Registration Error: {e}")
-                else:
-                    st.warning("Please fill in all required fields.")
-
-if st.session_state.role is None:
-    login()
-    st.stop()
+                        st.error(f"Error: {e}")
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -410,6 +400,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
