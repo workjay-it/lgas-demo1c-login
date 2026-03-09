@@ -61,7 +61,7 @@ def login():
 
         with tab_reg:
             st.info("Register a new Account")
-            reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
+            reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing Center"])
             
             col_a, col_b = st.columns(2)
             with col_a:
@@ -121,7 +121,7 @@ def get_unified_data():
 
 full_df = get_unified_data()
 
-# --- 3. DYNAMIC NAVIGATION (GOD MODE) ---
+# --- 3. DYNAMIC NAVIGATION  ---
 st.sidebar.title(f"👤 {st.session_state.role}")
 if st.session_state.company_link:
     st.sidebar.caption(f" {st.session_state.company_link}")
@@ -429,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
