@@ -181,21 +181,32 @@ if choice == "Dashboard":
        # --- 3. ANALYTICS STACK (Rearranged Order) ---
         st.markdown("---")
         
-        # FIRST: Compliance Status
-        st.subheader("Compliance Status")
-        if "Next_Test_Due" in display_df.columns:
-            display_df["Next_Test_Due"] = pd.to_datetime(display_df["Next_Test_Due"], errors='coerce')
-            today = datetime.now().date()
-            overdue = display_df[display_df["Next_Test_Due"].dt.date <= (today + timedelta(days=7))]
-            
-            if not overdue.empty:
-                st.error(f"{len(overdue)} Units require Immediate Testing")
-                st.dataframe(overdue[["Cylinder_ID", "batch_id", "Next_Test_Due"]], 
-                             use_container_width=True, hide_index=True)
-            else:
-                st.success("All units are currently compliant.")
-
-        st.markdown("---")
+        # --- 3.1 COMPLIANCE STATUS (With dedicated download) ---
+st.subheader("⚖️ Compliance Status")
+if "Next_Test_Due" in display_df.columns:
+    display_df["Next_Test_Due"] = pd.to_datetime(display_df["Next_Test_Due"], errors='coerce')
+    today = datetime.now().date()
+    # Filter for units needing tests within 7 days
+    overdue = display_df[display_df["Next_Test_Due"].dt.date <= (today + timedelta(days=7))]
+    
+    if not overdue.empty:
+        st.error(f"⚠️ {len(overdue)} Units require Immediate Testing")
+        
+        # Display the specific overdue list
+        st.dataframe(overdue[["Cylinder_ID", "batch_id", "Next_Test_Due"]], 
+                     use_container_width=True, hide_index=True)
+        
+        # Dedicated Download Button for the Compliance List ONLY
+        compliance_csv = overdue.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Compliance List (CSV)",
+            data=compliance_csv,
+            file_name=f"compliance_report_{target_co}_{today}.csv",
+            mime='text/csv',
+            key="compliance_download" # Unique key to avoid conflicts
+        )
+    else:
+        st.success("✅ All units are currently compliant.")
 
         # SECOND: Batch Distribution
         # This is now positioned directly under the compliance alerts
@@ -430,6 +441,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
