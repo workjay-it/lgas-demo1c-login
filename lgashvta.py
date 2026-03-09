@@ -22,7 +22,6 @@ if 'role' not in st.session_state:
 if 'company_link' not in st.session_state:
     st.session_state.company_link = None
 
-# Initialize Connection
 @st.cache_resource
 def init_connection():
     return create_client(st.secrets["connections"]["supabase"]["url"], st.secrets["connections"]["supabase"]["key"])
@@ -32,17 +31,18 @@ supabase = init_connection()
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Company Account"])
+        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
         
         with tab_login:
             user = st.text_input("Username (Full Name)")
             pwd = st.text_input("Password", type="password")
             if st.button("Login"):
-                # Query profiles table for matching user
-                # NOTE: For production, implement password hashing
+                # Logic: Query profiles. In production, verify hashed password.
                 res = supabase.table("profiles").select("*").eq("full_name", user).execute()
                 if res.data:
                     user_info = res.data[0]
+                    # Check if a password field exists in your Supabase table
+                    # if user_info.get('password') == pwd: 
                     st.session_state.role = user_info['role']
                     st.session_state.company_link = user_info['Client_link']
                     st.success(f"Welcome back, {user}")
@@ -51,20 +51,39 @@ def login():
                     st.error("Invalid credentials. Please try again or register.")
 
         with tab_reg:
-            st.info("Register a new account to manage your company's cylinders.")
-            new_user = st.text_input("Choose Username (Full Name)")
-            new_comp = st.selectbox("Select Your Company", ["Indane", "Bharat Gas", "HP Gas", "Industrial Solutions", "LPG Hub Hyderabad"])
-            # Default password for registration in this demo
+            st.info("📝 Register a new Account")
+            
+            # Select Role to customize the registration form
+            reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Test Center"])
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                new_user = st.text_input("Choose Username (Full Name)")
+                new_pwd = st.text_input("Choose Password", type="password")
+            
+            with col_b:
+                if reg_role == "Gas Company":
+                    new_link = st.selectbox("Select Your Company", ["Indane", "Bharat Gas", "HP Gas", "Industrial Solutions", "LPG Hub Hyderabad"])
+                else:
+                    new_link = st.text_input("Facility/Yard Name (e.g., Main Testing Yard)")
+                
+                contact_info = st.text_input("Contact Number / Email")
+
             if st.button("Register & Create Account"):
-                try:
-                    supabase.table("profiles").insert({
-                        "full_name": new_user,
-                        "role": "Gas Company",
-                        "Client_link": new_comp
-                    }).execute()
-                    st.success("Registration successful! You can now login.")
-                except Exception as e:
-                    st.error(f"Registration Error: {e}")
+                if new_user and new_pwd and new_link:
+                    try:
+                        # Ensure your Supabase 'profiles' table has columns for these fields
+                        supabase.table("profiles").insert({
+                            "full_name": new_user,
+                            "role": reg_role,
+                            "Client_link": new_link,
+                            "updated_at": str(datetime.now())
+                        }).execute()
+                        st.success(f"Account created for {new_user}! You can now Login.")
+                    except Exception as e:
+                        st.error(f"Registration Error: {e}")
+                else:
+                    st.warning("Please fill in all required fields.")
 
 if st.session_state.role is None:
     login()
@@ -101,11 +120,7 @@ if st.session_state.company_link:
 menu = ["Dashboard", "Search Unit"] 
 
 if st.session_state.role == "Admin":
-    full_menu = ["Dashboard", "Bulk Processing (Workers)", "Financial & Billing", "Truck Intake", "Search Unit", "Gas Co Upload"]
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🛠️ Admin Controls")
-    dev_mode = st.sidebar.toggle("Developer Mode", value=True)
-    menu = full_menu if dev_mode else ["Dashboard", "Search Unit"]
+    menu = ["Dashboard", "Bulk Processing (Workers)", "Financial & Billing", "Truck Intake", "Search Unit", "Gas Co Upload"]
 elif st.session_state.role == "Gas Company":
     menu = ["Dashboard", "Gas Co Upload", "Search Unit"]
 elif st.session_state.role == "Test Center":
@@ -118,7 +133,7 @@ if st.sidebar.button("Logout"):
     st.session_state.company_link = None
     st.rerun()
 
-# --- PAGE: DASHBOARD (WITH ROLE-BASED ISOLATION) ---
+# --- PAGE: DASHBOARD ---
 if choice == "Dashboard":
     st.header("Fleet Intelligence & Batch Analytics")
 
@@ -130,11 +145,13 @@ if choice == "Dashboard":
             all_companies = ["All Companies"] + sorted([str(c) for c in full_df["company"].unique() if c])
             target_company = st.selectbox("Select Company to view", all_companies)
             display_df = full_df if target_company == "All Companies" else full_df[full_df["company"] == target_company]
-        else:
-            # Gas Company only sees their linked company data
+        elif st.session_state.role == "Gas Company":
             target_company = st.session_state.company_link
             display_df = full_df[full_df["company"] == target_company]
             st.info(f"Displaying secure data for {target_company}")
+        else: # Test Center
+            display_df = full_df
+            st.info(f"📍 Operational View: {st.session_state.company_link}")
 
         # 2. METRICS
         m1, m2, m3 = st.columns(3)
@@ -142,31 +159,37 @@ if choice == "Dashboard":
         m2.metric("Total Cylinders", display_df["Cylinder_ID"].count())
         m3.metric("Damaged Found", (display_df["Status"].astype(str).str.upper() == "DAMAGED").sum())
 
-        # 3. PROFESSIONAL EXPORT CENTER
-        with st.expander("📥 Professional Report Export Center"):
-            col1, col2 = st.columns(2)
-            with col1:
-                data_range = st.radio("Select Data Range", ["Complete Database", "New (Last 7 Days)", "Historical (Old)"], horizontal=True)
-            with col2:
-                file_ext = st.selectbox("Export Format", ["CSV", "Excel", "PDF"])
-            
-            # Date filtering logic
-            if data_range == "New (Last 7 Days)":
-                cutoff = datetime.now() - timedelta(days=7)
-                export_df = display_df[pd.to_datetime(display_df["arrival_time"]) >= cutoff]
-            elif data_range == "Historical (Old)":
-                cutoff = datetime.now() - timedelta(days=7)
-                export_df = display_df[pd.to_datetime(display_df["arrival_time"]) < cutoff]
+        # 3. EXPORT CENTER
+        with st.expander("📥 Professional Report Export"):
+            if st.session_state.role == "Test Center":
+                # Test Center gets Before/After work downloads
+                c1, c2 = st.columns(2)
+                with c1:
+                    todo_df = full_df[full_df["Status"] == "Empty"]
+                    st.download_button("📋 Download Job Sheet (Pending)", todo_df.to_csv(index=False).encode('utf-8'), "job_sheet.csv")
+                with c2:
+                    today_str = str(datetime.now().date())
+                    done_df = full_df[full_df["Last_Test_Date"] == today_str]
+                    st.download_button("✅ Download Completion Log (Today)", done_df.to_csv(index=False).encode('utf-8'), f"production_{today_str}.csv")
             else:
-                export_df = display_df
+                # Gas Company / Admin gets New/Old data downloads
+                col1, col2 = st.columns(2)
+                with col1:
+                    data_range = st.radio("Select Data Range", ["Complete", "New (Last 7 Days)", "Historical (Old)"], horizontal=True)
+                with col2:
+                    file_ext = st.selectbox("Format", ["CSV", "Excel", "PDF"])
 
-            if not export_df.empty:
-                if file_ext == "CSV":
-                    st.download_button("Download CSV Report", export_df.to_csv(index=False).encode('utf-8'), f"report_{target_company}.csv")
-                elif file_ext == "Excel":
-                    st.info("Excel export requires 'openpyxl' in requirements.txt")
+                if data_range == "New (Last 7 Days)":
+                    cutoff = datetime.now() - timedelta(days=7)
+                    export_df = display_df[pd.to_datetime(display_df["arrival_time"]) >= cutoff]
+                elif data_range == "Historical (Old)":
+                    cutoff = datetime.now() - timedelta(days=7)
+                    export_df = display_df[pd.to_datetime(display_df["arrival_time"]) < cutoff]
                 else:
-                    st.info("PDF export requires 'fpdf' library.")
+                    export_df = display_df
+
+                if not export_df.empty:
+                    st.download_button(f"Download {file_ext} Report", export_df.to_csv(index=False).encode('utf-8'), "report.csv")
 
         st.markdown("---")
         st.subheader(f"Batch Performance Summary")
@@ -387,6 +410,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
