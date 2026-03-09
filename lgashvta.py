@@ -122,7 +122,7 @@ def get_unified_data():
 full_df = get_unified_data()
 
 # --- 3. DYNAMIC NAVIGATION  ---
-st.sidebar.title(f"👤 {st.session_state.role}")
+st.sidebar.title(f"{st.session_state.role}")
 if st.session_state.company_link:
     st.sidebar.caption(f" {st.session_state.company_link}")
 
@@ -165,7 +165,7 @@ if choice == "Dashboard":
         # Testing Center / Operational View
         else: 
             display_df = full_df
-            st.info(f"📍 Operational View: Total Yard Inventory")
+            st.info(f"Operational View: Total Yard Inventory")
 
         # --- 2. KEY PERFORMANCE METRICS (Top Row) ---
         m1, m2, m3, m4 = st.columns(4)
@@ -178,32 +178,35 @@ if choice == "Dashboard":
             m3.metric("Ready for Dispatch", ready_count)
             m4.metric("Damaged Found", damaged_count)
 
-        # --- 3. ANALYTICS STACK (Full Width Visuals) ---
+       # --- 3. ANALYTICS STACK (Rearranged Order) ---
         st.markdown("---")
-        st.subheader("📊 Batch Distribution")
-        if not display_df.empty:
-            # Aggregate counts per batch for the bar chart
-            batch_counts = display_df.groupby("batch_id").size().reset_index(name="Units")
-            st.bar_chart(batch_counts.set_index("batch_id"), height=350)
-
-        st.markdown("---")
-        st.subheader("⚖️ Compliance Status")
+        
+        # FIRST: Compliance Status
+        st.subheader("Compliance Status")
         if "Next_Test_Due" in display_df.columns:
             display_df["Next_Test_Due"] = pd.to_datetime(display_df["Next_Test_Due"], errors='coerce')
             today = datetime.now().date()
-            # Identify units needing tests within 7 days
             overdue = display_df[display_df["Next_Test_Due"].dt.date <= (today + timedelta(days=7))]
             
             if not overdue.empty:
-                st.error(f"⚠️ {len(overdue)} Units require Immediate Testing")
+                st.error(f"{len(overdue)} Units require Immediate Testing")
                 st.dataframe(overdue[["Cylinder_ID", "batch_id", "Next_Test_Due"]], 
                              use_container_width=True, hide_index=True)
             else:
-                st.success("✅ All units are currently compliant.")
+                st.success("All units are currently compliant.")
+
+        st.markdown("---")
+
+        # SECOND: Batch Distribution
+        # This is now positioned directly under the compliance alerts
+        st.subheader("📊 Batch Distribution")
+        if not display_df.empty:
+            batch_counts = display_df.groupby("batch_id").size().reset_index(name="Units")
+            st.bar_chart(batch_counts.set_index("batch_id"), height=350)
 
         # --- 4. SECURE DATA EXPLORER (Bottom Section) ---
         st.markdown("---")
-        with st.expander(f"📂 View Detailed Records & Export ({st.session_state.get('company_link', 'All Data')})"):
+        with st.expander(f"View Detailed Records & Export ({st.session_state.get('company_link', 'All Data')})"):
             st.write("Below are the individual cylinder records for your specific fleet.")
             
             # Displays the inventory filtered by the user's company
@@ -211,7 +214,7 @@ if choice == "Dashboard":
             
             # Secure CSV Download
             st.download_button(
-                label="📥 Download This Inventory (CSV)",
+                label="Download This Inventory (CSV)",
                 data=display_df.to_csv(index=False).encode('utf-8'),
                 file_name=f"inventory_{datetime.now().date()}.csv",
                 mime='text/csv',
@@ -427,6 +430,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
