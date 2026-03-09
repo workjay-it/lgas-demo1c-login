@@ -210,7 +210,7 @@ if choice == "Dashboard":
 
 
 # --- PAGE: BULK PROCESSING ---
-        elif choice == "Bulk Processing (Workers)":
+elif choice == "Bulk Processing (Workers)":
     st.header("Production Line Triage")
     
     if full_df.empty:
@@ -418,6 +418,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
