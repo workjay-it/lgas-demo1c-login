@@ -124,11 +124,11 @@ full_df = get_unified_data()
 # --- 3. DYNAMIC NAVIGATION (GOD MODE) ---
 st.sidebar.title(f"👤 {st.session_state.role}")
 if st.session_state.company_link:
-    st.sidebar.caption(f"🏢 {st.session_state.company_link}")
+    st.sidebar.caption(f" {st.session_state.company_link}")
 
 # Define base menu matching role strings in your DB
 if st.session_state.role == "admin":
-    st.sidebar.warning("⚡ GOD MODE ACTIVE")
+    st.sidebar.warning("Developer Mode")
     menu = ["Dashboard", "Bulk Processing (Workers)", "Financial & Billing", "Truck Intake", "Search Unit", "Gas Co Upload"]
 elif st.session_state.role == "Gas Company":
     menu = ["Dashboard", "Gas Co Upload", "Search Unit"]
@@ -429,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
