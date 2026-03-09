@@ -29,11 +29,11 @@ def init_connection():
 
 supabase = init_connection()
 
-# --- 1.5 LOGIN & REGISTRATION LOGIC ---
+# --- 2. LOGIN & REGISTRATION LOGIC ---
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["Login", "Create Account"])
+        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
         
         with tab_login:
             user_input = st.text_input("Username")
@@ -53,19 +53,20 @@ def login():
                             st.success(f"Welcome back, {user_input}")
                             st.rerun()
                         else:
-                            st.error("Invalid password. Please try again.")
+                            st.error("Invalid password.")
                     else:
                         st.error("User not found.")
                 except Exception as e:
-                    st.error(f"API Error: Ensure 'username' exists and RLS allows access.")
+                    st.error(f"API Error: {e}")
 
-       with tab_reg:
-            st.info("Register a new Account")
+        with tab_reg:
+            st.info("📝 Register a new Account")
+            # Restricted role selection to prevent unauthorized Admin accounts
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
             
             col_a, col_b = st.columns(2)
             with col_a:
-                new_user = st.text_input("Username (for Login)") # Matches 'username' in DB
+                new_user = st.text_input("Choose Username")
                 new_pwd = st.text_input("Choose Password", type="password")
                 confirm_pwd = st.text_input("Verify Password", type="password")
             
@@ -74,26 +75,30 @@ def login():
                     new_link = st.selectbox("Select Your Company", ["Indane", "Bharat Gas", "HP Gas", "Industrial Solutions", "LPG Hub Hyderabad"])
                 else:
                     new_link = st.text_input("Facility/Yard Name (e.g., North Yard)")
-                contact_info = st.text_input("Email or Phone Number")
+                contact_info = st.text_input("Contact Email/Phone")
 
             if st.button("Register & Create Account"):
                 if new_pwd != confirm_pwd:
                     st.error("❌ Passwords do not match.")
                 elif not (new_user and new_pwd and new_link):
-                    st.warning("Please fill in all required fields.")
+                    st.warning("⚠️ Please fill in all required fields.")
                 else:
                     try:
-                        # UPDATED: Mapping to the exact column names in your latest Supabase screenshot
+                        # UPDATED: Inserting into correct columns: username and password
                         supabase.table("profiles").insert({
-                            "username": new_user,      # Matches 'username' column
-                            "role": reg_role,          # Matches 'role' column
-                            "client_link": new_link,   # Matches 'client_link' column
-                            "password": new_pwd,       # Matches 'password' column
+                            "username": new_user,
+                            "role": reg_role,
+                            "client_link": new_link,
+                            "password": new_pwd,
                             "updated_at": str(datetime.now())
                         }).execute()
-                        st.success("✅ Registration successful! Please switch to Login tab.")
+                        st.success("✅ Account created! Please log in.")
                     except Exception as e:
                         st.error(f"Registration Error: {e}")
+
+if st.session_state.role is None:
+    login()
+    st.stop()}")
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -423,6 +428,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
