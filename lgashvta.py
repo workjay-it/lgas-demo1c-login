@@ -182,7 +182,7 @@ if choice == "Dashboard":
         st.markdown("---")
         
         # --- 3.1 COMPLIANCE STATUS (With dedicated download) ---
-st.subheader("⚖️ Compliance Status")
+st.subheader("Compliance Status")
 if "Next_Test_Due" in display_df.columns:
     display_df["Next_Test_Due"] = pd.to_datetime(display_df["Next_Test_Due"], errors='coerce')
     today = datetime.now().date()
@@ -206,11 +206,11 @@ if "Next_Test_Due" in display_df.columns:
             key="compliance_download" # Unique key to avoid conflicts
         )
     else:
-        st.success("✅ All units are currently compliant.")
+        st.success("All units are currently compliant.")
 
         # SECOND: Batch Distribution
         # This is now positioned directly under the compliance alerts
-        st.subheader("📊 Batch Distribution")
+        st.subheader("Batch Distribution Visualization")
         if not display_df.empty:
             batch_counts = display_df.groupby("batch_id").size().reset_index(name="Units")
             st.bar_chart(batch_counts.set_index("batch_id"), height=350)
@@ -441,6 +441,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
