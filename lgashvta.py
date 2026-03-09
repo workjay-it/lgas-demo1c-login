@@ -41,13 +41,13 @@ def login():
             
             if st.button("Login"):
                 try:
-                    # UPDATED: Using 'username' to match your latest table
+                    # Querying the 'username' column as seen in your Supabase table
                     res = supabase.table("profiles").select("*").eq("username", user_input).execute()
                     
                     if res.data:
                         user_info = res.data[0]
-                        # Verify the password against the 'password' column
-                        if user_info.get('password') == pwd_input:
+                        # Comparing provided password with the 'password' column
+                        if str(user_info.get('password')) == str(pwd_input):
                             st.session_state.role = user_info['role']
                             st.session_state.company_link = user_info['client_link']
                             st.success(f"Welcome back, {user_input}")
@@ -57,11 +57,10 @@ def login():
                     else:
                         st.error("User not found.")
                 except Exception as e:
-                    st.error(f"API Error: {e}")
+                    st.error(f"Database connection error: {e}")
 
         with tab_reg:
             st.info("Register a new Account")
-            # Restricted role selection to prevent unauthorized Admin accounts
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
             
             col_a, col_b = st.columns(2)
@@ -84,7 +83,7 @@ def login():
                     st.warning("Please fill in all required fields.")
                 else:
                     try:
-                        # UPDATED: Inserting into correct columns: username and password
+                        # Inserting into 'username' and 'password' columns
                         supabase.table("profiles").insert({
                             "username": new_user,
                             "role": reg_role,
@@ -92,11 +91,12 @@ def login():
                             "password": new_pwd,
                             "updated_at": str(datetime.now())
                         }).execute()
-                        st.success("Account created! Please log in.")
+                        st.success("Account created! Please switch to the Login tab.")
                     except Exception as e:
                         st.error(f"Registration Error: {e}")
 
-# This part must be outside the login() function
+# --- 2.5 ACCESS GATE ---
+# This must remain at the same indentation level as the 'def login():' line
 if st.session_state.role is None:
     login()
     st.stop()
@@ -429,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
