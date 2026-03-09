@@ -33,23 +33,31 @@ supabase = init_connection()
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
+        tab_login, tab_reg = st.tabs(["Login", "Create Account"])
         
         with tab_login:
-            user = st.text_input("Username (Full Name)")
-            pwd = st.text_input("Password", type="password")
+            user_input = st.text_input("Username")
+            pwd_input = st.text_input("Password", type="password")
+            
             if st.button("Login"):
-                # Querying matching your Supabase screenshot
-                res = supabase.table("profiles").select("*").eq("full_name", user).execute()
-                if res.data:
-                    user_info = res.data[0]
-                    # Map exactly to your DB columns: role and client_link
-                    st.session_state.role = user_info['role']
-                    st.session_state.company_link = user_info['client_link']
-                    st.success(f"Welcome back, {user}")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials. Please try again.")
+                try:
+                    # UPDATED: Using 'username' to match your latest table
+                    res = supabase.table("profiles").select("*").eq("username", user_input).execute()
+                    
+                    if res.data:
+                        user_info = res.data[0]
+                        # Verify the password against the 'password' column
+                        if user_info.get('password') == pwd_input:
+                            st.session_state.role = user_info['role']
+                            st.session_state.company_link = user_info['client_link']
+                            st.success(f"Welcome back, {user_input}")
+                            st.rerun()
+                        else:
+                            st.error("Invalid password. Please try again.")
+                    else:
+                        st.error("User not found.")
+                except Exception as e:
+                    st.error(f"API Error: Ensure 'username' exists and RLS allows access.")
 
         with tab_reg:
             st.info("📝 Register a new Account")
@@ -418,6 +426,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
