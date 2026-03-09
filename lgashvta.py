@@ -89,6 +89,7 @@ def login():
                             "role": reg_role,
                             "client_link": new_link,
                             "password": new_pwd
+                            "updated_at": str(datetime.now())
                         }).execute()
                         st.success("Account created! Please switch to the Login tab.")
                     except Exception as e:
@@ -428,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
