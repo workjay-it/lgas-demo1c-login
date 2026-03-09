@@ -33,7 +33,7 @@ supabase = init_connection()
 def login():
     with st.container():
         st.subheader("Gas Logistics Portal")
-        tab_login, tab_reg = st.tabs(["🔑 Login", "📝 Create Account"])
+        tab_login, tab_reg = st.tabs(["Login", "Create Account"])
         
         with tab_login:
             user_input = st.text_input("Username")
@@ -60,7 +60,7 @@ def login():
                     st.error(f"API Error: {e}")
 
         with tab_reg:
-            st.info("📝 Register a new Account")
+            st.info("Register a new Account")
             # Restricted role selection to prevent unauthorized Admin accounts
             reg_role = st.selectbox("I am registering as a:", ["Gas Company", "Testing_Center"])
             
@@ -79,9 +79,9 @@ def login():
 
             if st.button("Register & Create Account"):
                 if new_pwd != confirm_pwd:
-                    st.error("❌ Passwords do not match.")
+                    st.error("Passwords do not match.")
                 elif not (new_user and new_pwd and new_link):
-                    st.warning("⚠️ Please fill in all required fields.")
+                    st.warning("Please fill in all required fields.")
                 else:
                     try:
                         # UPDATED: Inserting into correct columns: username and password
@@ -92,13 +92,13 @@ def login():
                             "password": new_pwd,
                             "updated_at": str(datetime.now())
                         }).execute()
-                        st.success("✅ Account created! Please log in.")
+                        st.success("Account created! Please log in.")
                     except Exception as e:
                         st.error(f"Registration Error: {e}")
 
 if st.session_state.role is None:
     login()
-    st.stop()}")
+    st.stop()")
 
 # --- 2. GLOBAL DATA FETCHING ---
 @st.cache_data(ttl=300)
@@ -428,6 +428,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
