@@ -149,76 +149,76 @@ if choice == "Dashboard":
     if full_df.empty:
         st.warning("No data found.")
     else:
-        # --- 1. DATA ISOLATION & GOD MODE LOGIC ---
+        # --- 1. DATA ISOLATION LOGIC ---
         # Admin can see everything or filter by company
-        if st.session_state.role == "admin":
+        if st.session_state.role == "Admin":
             all_companies = ["All Companies"] + sorted([str(c) for c in full_df["company"].unique() if c])
             target_company = st.selectbox("Switch View (God Mode)", all_companies)
             display_df = full_df if target_company == "All Companies" else full_df[full_df["company"] == target_company]
         
-        # Gas Companies only see their assigned data
+        # Gas Companies are strictly locked to their company_link
         elif st.session_state.role == "Gas Company":
-            target_company = st.session_state.company_link
+            target_company = st.session_state.get('company_link', "Indane")
             display_df = full_df[full_df["company"] == target_company]
             st.info(f"Viewing secure data for: {target_company}")
         
-        # Testing Centers see all operational data in the yard
+        # Testing Centers see all operational data
         else: 
             display_df = full_df
-            st.info(f"📍 Operational View: {st.session_state.company_link}")
+            st.info(f"📍 Operational View: Total Yard Inventory")
 
-        # --- 2. KEY PERFORMANCE METRICS ---
+        # --- 2. TOP LEVEL METRICS ---
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Active Batches", display_df["batch_id"].nunique())
-        m2.metric("Total Cylinders", display_df["Cylinder_ID"].count() if "Cylinder_ID" in display_df.columns else 0)
+        m2.metric("Total Cylinders", len(display_df))
         
-        # Calculate Health Metrics
         if "Status" in display_df.columns:
-            damaged_count = (display_df["Status"].astype(str).str.upper() == "DAMAGED").sum()
             ready_count = (display_df["Status"].astype(str).str.upper() == "FULL").sum()
+            damaged_count = (display_df["Status"].astype(str).str.upper() == "DAMAGED").sum()
             m3.metric("Ready for Dispatch", ready_count)
-            m4.metric("Damaged Found", damaged_count, delta_color="inverse")
+            m4.metric("Damaged Found", damaged_count)
 
-        st.markdown("---")
+        # --- 3. VISUAL ANALYTICS (Middle Section) ---
+        col_chart, col_alerts = st.columns([1.5, 1])
 
-        # --- 3. VISUAL ANALYTICS ---
-        col_left, col_right = st.columns(2)
-
-        with col_left:
+        with col_chart:
             st.subheader("Batch Distribution")
             if not display_df.empty:
-                # Grouping data for a summary view
-                batch_summary = display_df.groupby("batch_id").size().reset_index(name='Units')
-                st.bar_chart(batch_summary.set_index("batch_id"))
+                batch_counts = display_df.groupby("batch_id").size().reset_index(name="Count")
+                st.bar_chart(batch_counts.set_index("batch_id"))
 
-        with col_right:
+        with col_alerts:
             st.subheader("Compliance Status")
             if "Next_Test_Due" in display_df.columns:
-                # Identify units needing re-testing within 7 days
                 display_df["Next_Test_Due"] = pd.to_datetime(display_df["Next_Test_Due"], errors='coerce')
-                overdue = display_df[display_df["Next_Test_Due"] <= (datetime.now() + timedelta(days=7))]
+                today = datetime.now().date()
+                # Units requiring testing within 7 days
+                overdue = display_df[display_df["Next_Test_Due"].dt.date <= (today + timedelta(days=7))]
                 
                 if not overdue.empty:
                     st.error(f"⚠️ {len(overdue)} Units require Immediate Testing")
-                    st.dataframe(overdue[["Cylinder_ID", "batch_id", "Next_Test_Due"]].head(10), use_container_width=True)
+                    st.dataframe(overdue[["Cylinder_ID", "batch_id", "Next_Test_Due"]], 
+                                 height=250, use_container_width=True, hide_index=True)
                 else:
                     st.success("✅ All units are currently compliant.")
 
+        # --- 4. SECURE MASTER INVENTORY (Bottom Section) ---
         st.markdown("---")
-
-        # --- 4. DATA EXPLORER & EXPORT ---
-        with st.expander("🔍 View Detailed Records & Export"):
-            st.dataframe(display_df, use_container_width=True)
+        # Collapsible section to keep the UI focused on visuals
+        with st.expander(f"📂 View Detailed Records & Export ({st.session_state.get('company_link', 'All Data')})"):
+            st.write(f"Showing individual cylinder records for {st.session_state.get('company_link', 'all batches')}.")
             
-            # Download capability for reports
-            csv = display_df.to_csv(index=False).encode('utf-8')
+            # Displays only the filtered company data
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            
+            # Export button for the specific company data
             st.download_button(
-                label="📥 Download Data as CSV",
-                data=csv,
-                file_name=f"report_{datetime.now().date()}.csv",
+                label="📥 Download This Inventory as CSV",
+                data=display_df.to_csv(index=False).encode('utf-8'),
+                file_name=f"inventory_{datetime.now().date()}.csv",
                 mime='text/csv',
             )
-
+            
 
 # --- PAGE: BULK PROCESSING ---
 elif choice == "Bulk Processing (Workers)":
@@ -429,6 +429,7 @@ elif choice == "Gas Co Upload":
                     }).execute()
                     st.success("Scanned unit registered!")
                     st.cache_data.clear()
+
 
 
 
